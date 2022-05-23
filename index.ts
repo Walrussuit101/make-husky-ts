@@ -46,32 +46,26 @@ const mainProc = (projectName: string) => {
     // - make tsconfig file
 
     const projectDirectory = createProjectDirectory(projectName);
+    const execOpt = { cwd: projectDirectory };
     execSync("git init && npm init -y", { cwd: projectDirectory }); // setup git repo / npm project
-    execSync("npm set-script prepare 'husky install' && npm run prepare", {
-        cwd: projectDirectory
-    }); // install husky
-    execSync("npm set-script start 'ts-node src/index.ts'", {
-        cwd: projectDirectory
-    }); // add start command
+    execSync(
+        "npm set-script prepare 'husky install' && npm run prepare",
+        execOpt
+    ); // install husky
+    execSync("npm set-script start 'ts-node src/index.ts'", execOpt); // add start command
 
     installDeps(projectDirectory);
     execSync(
         "npm pkg set lint-staged.**/*='prettier --write --ignore-unknown'",
-        { cwd: projectDirectory }
-    ); // add lint-staged key
-    execSync("npm pkg set prettier.tabWidth=4 --json", {
-        cwd: projectDirectory
-    }); // add prettier config
-    execSync("npm pkg set prettier.endOfLine=lf", { cwd: projectDirectory });
-    execSync("npm pkg set prettier.trailingComma=none", {
-        cwd: projectDirectory
-    });
+        execOpt
+    ); // add lint-staged
+    execSync("npm pkg set prettier.tabWidth=4 --json", execOpt); // add prettier config
+    execSync("npm pkg set prettier.endOfLine=lf", execOpt);
+    execSync("npm pkg set prettier.trailingComma=none", execOpt);
 
-    execSync("npx husky add .husky/pre-commit 'npx lint-staged'", {
-        cwd: projectDirectory
-    }); // add husky precommit hook
+    execSync("npx husky add .husky/pre-commit 'npx lint-staged'", execOpt); // add husky precommit hook
 
-    mkdirSync(path.join(projectDirectory, "src"));
+    mkdirSync(path.join(projectDirectory, "src")); // make src/index.ts file
     writeFileSync(
         path.join(projectDirectory, "src", "index.ts"),
         `console.log("hello world! project name: ${projectName}")`
