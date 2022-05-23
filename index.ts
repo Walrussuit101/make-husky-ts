@@ -5,12 +5,7 @@ import { execSync } from "child_process";
 
 import packageFile from "./package.json";
 
-/**
- * Create and return the project directory path
- *
- * @param projectName The project name argument from user
- * @returns The project directory
- */
+// Create and return the project directory path
 const createProjectDirectory = (projectName: string): string => {
     const projectDirectory = path.join(process.cwd(), projectName);
 
