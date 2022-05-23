@@ -47,27 +47,29 @@ const mainProc = (projectName: string) => {
 
     const projectDirectory = createProjectDirectory(projectName);
     const execOpt = { cwd: projectDirectory };
-    execSync("git init && npm init -y", { cwd: projectDirectory }); // setup git repo / npm project
+    execSync("git init && npm init -y", execOpt);
     execSync(
         "npm set-script prepare 'husky install' && npm run prepare",
         execOpt
-    ); // install husky
-    execSync("npm set-script start 'ts-node src/index.ts'", execOpt); // add start command
+    );
+    execSync("npm set-script start 'ts-node src/index.ts'", execOpt);
 
     installDeps(projectDirectory);
     execSync(
         "npm pkg set lint-staged.**/*='prettier --write --ignore-unknown'",
         execOpt
-    ); // add lint-staged
-    execSync("npm pkg set prettier.tabWidth=4 --json", execOpt); // add prettier config
+    );
+    execSync("npm pkg set prettier.tabWidth=4 --json", execOpt);
     execSync("npm pkg set prettier.endOfLine=lf", execOpt);
     execSync("npm pkg set prettier.trailingComma=none", execOpt);
 
-    execSync("npx husky add .husky/pre-commit 'npx lint-staged'", execOpt); // add husky precommit hook
+    execSync("npx husky add .husky/pre-commit 'npx lint-staged'", execOpt);
 
-    mkdirSync(path.join(projectDirectory, "src")); // make src/index.ts file
+    const projectSrcDir = path.join(projectDirectory, "src");
+    const projectIndexPath = path.join(projectSrcDir, "index.ts");
+    mkdirSync(projectSrcDir);
     writeFileSync(
-        path.join(projectDirectory, "src", "index.ts"),
+        projectIndexPath,
         `console.log("hello world! project name: ${projectName}")`
     );
 
