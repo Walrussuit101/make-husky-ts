@@ -44,6 +44,8 @@ const installDeps = (projectDirectory: string): void => {
 
 const mainProc = (projectName: string) => {
     // - make tsconfig file
+    // - make gitignore
+    // - make README
 
     const projectDirectory = createProjectDirectory(projectName);
     const execOpt = { cwd: projectDirectory };
