@@ -50,13 +50,13 @@ const mainProc = (projectName: string) => {
     const projectDirectory = createProjectDirectory(projectName);
     const execOpt = { cwd: projectDirectory };
     execSync("git init && npm init -y", execOpt);
+    installDeps(projectDirectory);
+
     execSync(
         "npm set-script prepare 'husky install' && npm run prepare",
         execOpt
     );
     execSync("npm set-script start 'ts-node src/index.ts'", execOpt);
-
-    installDeps(projectDirectory);
     execSync(
         "npm pkg set lint-staged.**/*='prettier --write --ignore-unknown'",
         execOpt
