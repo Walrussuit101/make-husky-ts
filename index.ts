@@ -1,5 +1,5 @@
 import { program } from "commander";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync } from "fs";
 import path from "path";
 import { execSync } from "child_process";
 
@@ -43,7 +43,7 @@ const installDeps = (projectDirectory: string): void => {
 };
 
 const mainProc = (projectName: string) => {
-    // - make src/index.ts file that console.log(<project_name>)
+    // - make tsconfig file
 
     const projectDirectory = createProjectDirectory(projectName);
     execSync("git init && npm init -y", { cwd: projectDirectory }); // setup git repo / npm project
@@ -70,6 +70,12 @@ const mainProc = (projectName: string) => {
     execSync("npx husky add .husky/pre-commit 'npx lint-staged'", {
         cwd: projectDirectory
     }); // add husky precommit hook
+
+    mkdirSync(path.join(projectDirectory, "src"));
+    writeFileSync(
+        path.join(projectDirectory, "src", "index.ts"),
+        `console.log("hello world! project name: ${projectName}")`
+    );
 
     console.log(projectName);
 };
