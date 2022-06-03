@@ -1,7 +1,7 @@
 {
-    "name": "make-husky-ts",
+    "name": "@walrussuit/make-husky-ts",
     "version": "1.0.0",
-    "description": "",
+    "description": "CLI to quickly make a TS project with prettier & husky",
     "main": "index.js",
     "scripts": {
         "start": "ts-node index.ts",

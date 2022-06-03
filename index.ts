@@ -112,6 +112,14 @@ program
     .name(packageFile.name)
     .version(packageFile.version)
     .description(packageFile.description)
+    .addHelpText(
+        "after",
+        `
+Valid arguments:
+    project_name:
+      - can only contain a-z, A-Z, 0-9, -, /, and _ characters
+      - to make in current directory use .`
+    )
     .usage("<project_name>")
     .argument("<project_name>", "The name for your project")
     .action((projectName) => {
@@ -120,9 +128,7 @@ program
 
         // if the name given doesn't pass new directory test and isn't '.' throw error
         if (!newDirRegex.test(projectName) && projectName !== ".") {
-            throw new Error(
-                "Invalid project name given (chars allowed: a-z, A-Z, 0-9, _, -, /, or a ."
-            );
+            throw new Error("Invalid project name given");
         }
 
         try {
