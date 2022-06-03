@@ -83,13 +83,17 @@ const mainProc = (projectName: string) => {
     installDeps(projectDirectory);
     updateNPM(projectDirectory);
 
+    // update projectName for further use, if its . get project path basename, otherwise use the given name
+    const updatedProjectName =
+        projectName === "." ? path.basename(projectDirectory) : projectName;
+
     // add index.ts file
     const projectSrcDir = path.join(projectDirectory, "src");
     const projectIndexPath = path.join(projectSrcDir, "index.ts");
     mkdirSync(projectSrcDir);
     writeFileSync(
         projectIndexPath,
-        `console.log("hello world! project name: ${projectName}");`
+        `console.log("hello world! project name: ${updatedProjectName}");`
     );
 
     // add tsconfig file
@@ -104,7 +108,7 @@ const mainProc = (projectName: string) => {
     writeFileSync(tsConfigPath, JSON.stringify(tsConfig, undefined, 2));
 
     // add gitignore / README
-    addGitFiles(projectDirectory, projectName);
+    addGitFiles(projectDirectory, updatedProjectName);
 };
 
 // setup commander and accept args
