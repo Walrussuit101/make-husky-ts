@@ -42,40 +42,63 @@ const installDeps = (projectDirectory: string): void => {
     execSync(installCmd, { cwd: projectDirectory });
 };
 
-const mainProc = (projectName: string) => {
-    // - make tsconfig file
-    // - make gitignore
-    // - make README
-
-    const projectDirectory = createProjectDirectory(projectName);
+// set package file keys / scripts
+const updateNPM = (projectDirectory: string) => {
     const execOpt = { cwd: projectDirectory };
-    execSync("git init && npm init -y", execOpt);
-    installDeps(projectDirectory);
 
     execSync(
-        "npm set-script prepare 'husky install' && npm run prepare",
+        'npm set-script prepare "husky install" && npm run prepare',
         execOpt
     );
-    execSync("npm set-script start 'ts-node src/index.ts'", execOpt);
+    execSync('npm set-script start "ts-node src/index.ts"', execOpt);
     execSync(
-        "npm pkg set lint-staged.**/*='prettier --write --ignore-unknown'",
+        'npm pkg set lint-staged.**/*="prettier --write --ignore-unknown"',
         execOpt
     );
     execSync("npm pkg set prettier.tabWidth=4 --json", execOpt);
     execSync("npm pkg set prettier.endOfLine=lf", execOpt);
     execSync("npm pkg set prettier.trailingComma=none", execOpt);
+    execSync('npx husky add .husky/pre-commit "npx lint-staged"', execOpt);
+};
 
-    execSync("npx husky add .husky/pre-commit 'npx lint-staged'", execOpt);
+// create git related files like gitignore, README
+const addGitFiles = (projectDirectory: string, projectName: string) => {
+    const gitignorePath = path.join(projectDirectory, ".gitignore");
+    const readMePath = path.join(projectDirectory, "README.md");
 
+    writeFileSync(gitignorePath, "node_modules\npackage-lock.json");
+    writeFileSync(readMePath, `# ${projectName}`);
+};
+
+const mainProc = (projectName: string) => {
+    // create dir, git repo, npm proj, install deps, and update package file keys / scripts
+    const projectDirectory = createProjectDirectory(projectName);
+    execSync("git init && npm init -y", { cwd: projectDirectory });
+    installDeps(projectDirectory);
+    updateNPM(projectDirectory);
+
+    // add index.ts file
     const projectSrcDir = path.join(projectDirectory, "src");
     const projectIndexPath = path.join(projectSrcDir, "index.ts");
     mkdirSync(projectSrcDir);
     writeFileSync(
         projectIndexPath,
-        `console.log("hello world! project name: ${projectName}")`
+        `console.log("hello world! project name: ${projectName}");`
     );
 
-    console.log(projectName);
+    // add tsconfig file
+    const tsConfigPath = path.join(projectDirectory, "tsconfig.json");
+    const tsConfig = {
+        compilerOptions: {
+            lib: ["ESNext"],
+            strict: true,
+            esModuleInterop: true
+        }
+    };
+    writeFileSync(tsConfigPath, JSON.stringify(tsConfig, undefined, 2));
+
+    // add gitignore / README
+    addGitFiles(projectDirectory, projectName);
 };
 
 // setup commander and accept args
