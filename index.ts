@@ -9,15 +9,20 @@ import packageFile from "./package.json";
 const createProjectDirectory = (projectName: string): string => {
     const projectDirectory = path.join(process.cwd(), projectName);
 
-    // if projectName is not '.' check that potential directory doesn't exist
-    if (projectName !== "." && existsSync(projectDirectory)) {
+    // if project will be in cwd, just return the projectDirectory path
+    if (projectName === ".") {
+        return projectDirectory;
+    }
+
+    // check that potential directory doesn't exist
+    if (existsSync(projectDirectory)) {
         throw new Error(
             `Project directory already exists: ${projectDirectory}`
         );
     }
 
     // otherwise create the directory
-    mkdirSync(projectDirectory);
+    mkdirSync(projectDirectory, { recursive: true });
 
     return projectDirectory;
 };
@@ -109,7 +114,15 @@ program
     .usage("<project_name>")
     .argument("<project_name>", "The name for your project")
     .action((projectName) => {
-        // TODO: validate projectName, a-zA-Z-_ etc. or a period
+        // validate projectName, a-zA-Z0-9_/- or a period
+        const newDirRegex = new RegExp(/^[A-Za-z0-9_/-]*$/);
+
+        // if the name given doesn't pass new directory test and isn't '.' throw error
+        if (!newDirRegex.test(projectName) && projectName !== ".") {
+            throw new Error(
+                "Invalid project name given (chars allowed: a-z, A-Z, 0-9, _, -, /, or a ."
+            );
+        }
 
         try {
             mainProc(projectName);
