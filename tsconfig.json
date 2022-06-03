@@ -3,6 +3,9 @@
         "lib": ["ESNext"],
         "strict": true,
         "esModuleInterop": true,
-        "resolveJsonModule": true
-    }
+        "resolveJsonModule": true,
+        "removeComments": true,
+        "outDir": "./build"
+    },
+    "exclude": ["./build.ts"]
 }
