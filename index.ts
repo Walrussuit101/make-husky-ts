@@ -76,13 +76,13 @@ const updateNPM = async (projectDirectory: string) => {
 
     spinner.start("Updating npm package file");
 
-    // must wait for this command as husky needs to be installed
-    await execPromise(
-        'npm set-script prepare "husky install" && npm run prepare',
-        execOpt
-    );
-
     try {
+        // must wait for this command as husky needs to be installed
+        await execPromise(
+            'npm set-script prepare "husky install" && npm run prepare',
+            execOpt
+        );
+
         await Promise.all([
             execPromise('npm set-script start "ts-node src/index.ts"', execOpt),
             execPromise(
