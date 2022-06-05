@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { program } from "commander";
-import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, promises as fs } from "fs";
 import path from "path";
 import { execSync, exec } from "child_process";
 import ora from "ora";
@@ -10,25 +10,38 @@ import packageFile from "./package.json";
 const spinner = ora();
 
 // Create and return the project directory path
-const createProjectDirectory = (projectName: string): string => {
+const createProjectDirectory = async (projectName: string): Promise<string> => {
+    spinner.start("Creating project directory, git repo, and npm project");
+
     const projectDirectory = path.join(process.cwd(), projectName);
 
-    // if project will be in cwd, just return the projectDirectory path
-    if (projectName === ".") {
-        return projectDirectory;
-    }
+    return new Promise((resolve, reject) => {
+        try {
+            // if project won't be in cwd, check it doesn't exist then make it
+            if (projectName !== ".") {
+                // check that potential directory doesn't exist
+                if (existsSync(projectDirectory)) {
+                    throw new Error(
+                        `Project directory already exists: ${projectDirectory}`
+                    );
+                }
 
-    // check that potential directory doesn't exist
-    if (existsSync(projectDirectory)) {
-        throw new Error(
-            `Project directory already exists: ${projectDirectory}`
-        );
-    }
+                // create the directory
+                mkdirSync(projectDirectory, { recursive: true });
+            }
 
-    // otherwise create the directory
-    mkdirSync(projectDirectory, { recursive: true });
+            execSync("git init && npm init -y", {
+                cwd: projectDirectory,
+                stdio: "ignore"
+            });
 
-    return projectDirectory;
+            spinner.succeed();
+            return resolve(projectDirectory);
+        } catch (e) {
+            spinner.fail();
+            return reject(e);
+        }
+    });
 };
 
 // Install dependencies in the project directory
@@ -70,12 +83,12 @@ const updateNPM = async (projectDirectory: string) => {
 
     spinner.start("Updating npm package file");
 
-    execSync(
-        'npm set-script prepare "husky install" && npm run prepare',
-        execOpt
-    );
     try {
         await Promise.all([
+            exec(
+                'npm set-script prepare "husky install" && npm run prepare',
+                execOpt
+            ),
             exec('npm set-script start "ts-node src/index.ts"', execOpt),
             exec(
                 'npm pkg set lint-staged.**/*="prettier --write --ignore-unknown"',
@@ -93,36 +106,17 @@ const updateNPM = async (projectDirectory: string) => {
     }
 };
 
-// create git related files like gitignore, README
-const addGitFiles = (projectDirectory: string, projectName: string) => {
+// create gitignore, readme, src/index, tsconfig
+const addProjectFiles = async (
+    projectDirectory: string,
+    projectName: string
+): Promise<void> => {
+    spinner.start("Adding project files");
+
     const gitignorePath = path.join(projectDirectory, ".gitignore");
     const readMePath = path.join(projectDirectory, "README.md");
-
-    writeFileSync(gitignorePath, "node_modules\npackage-lock.json");
-    writeFileSync(readMePath, `# ${projectName}`);
-};
-
-const mainProc = async (projectName: string) => {
-    // create dir, git repo, npm proj, install deps, and update package file keys / scripts
-    const projectDirectory = createProjectDirectory(projectName);
-    execSync("git init && npm init -y", { cwd: projectDirectory });
-    await installDeps(projectDirectory);
-    await updateNPM(projectDirectory);
-
-    // update projectName for further use, if its . get project path basename, otherwise use the given name
-    const updatedProjectName =
-        projectName === "." ? path.basename(projectDirectory) : projectName;
-
-    // add index.ts file
     const projectSrcDir = path.join(projectDirectory, "src");
     const projectIndexPath = path.join(projectSrcDir, "index.ts");
-    mkdirSync(projectSrcDir);
-    writeFileSync(
-        projectIndexPath,
-        `console.log("hello world! project name: ${updatedProjectName}");`
-    );
-
-    // add tsconfig file
     const tsConfigPath = path.join(projectDirectory, "tsconfig.json");
     const tsConfig = {
         compilerOptions: {
@@ -131,10 +125,34 @@ const mainProc = async (projectName: string) => {
             esModuleInterop: true
         }
     };
-    writeFileSync(tsConfigPath, JSON.stringify(tsConfig, undefined, 2));
 
-    // add gitignore / README
-    addGitFiles(projectDirectory, updatedProjectName);
+    // update projectName for further use, if its . get project path basename, otherwise use the given name
+    const updatedProjectName =
+        projectName === "." ? path.basename(projectDirectory) : projectName;
+
+    try {
+        await fs.mkdir(projectSrcDir);
+        await Promise.all([
+            fs.writeFile(gitignorePath, "node_modules\npackage-lock.json"),
+            fs.writeFile(readMePath, `# ${projectName}\n`),
+            fs.writeFile(tsConfigPath, JSON.stringify(tsConfig, undefined, 2)),
+            fs.writeFile(
+                projectIndexPath,
+                `console.log("hello world! project name: ${updatedProjectName}");`
+            )
+        ]);
+
+        spinner.succeed();
+    } catch (e) {
+        spinner.fail();
+    }
+};
+
+const mainProc = async (projectName: string) => {
+    const projectDirectory = await createProjectDirectory(projectName);
+    await installDeps(projectDirectory);
+    await updateNPM(projectDirectory);
+    await addProjectFiles(projectDirectory, projectName);
 };
 
 // setup commander and accept args
