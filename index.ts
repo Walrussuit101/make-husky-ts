@@ -2,9 +2,12 @@
 import { program } from "commander";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import path from "path";
-import { execSync } from "child_process";
+import { execSync, exec } from "child_process";
+import ora from "ora";
 
 import packageFile from "./package.json";
+
+const spinner = ora();
 
 // Create and return the project directory path
 const createProjectDirectory = (projectName: string): string => {
@@ -29,7 +32,7 @@ const createProjectDirectory = (projectName: string): string => {
 };
 
 // Install dependencies in the project directory
-const installDeps = (projectDirectory: string): void => {
+const installDeps = async (projectDirectory: string): Promise<void> => {
     const DEV_DEPS = [
         "typescript",
         "ts-node",
@@ -45,26 +48,49 @@ const installDeps = (projectDirectory: string): void => {
         installCmd += ` ${DEP}`;
     });
 
-    execSync(installCmd, { cwd: projectDirectory });
+    spinner.start("Installing dependencies");
+
+    return new Promise((resolve, reject) => {
+        exec(installCmd, { cwd: projectDirectory }).on("close", (code) => {
+            if (code === 0) {
+                spinner.succeed();
+                resolve();
+                return;
+            }
+
+            spinner.fail();
+            reject();
+        });
+    });
 };
 
 // set package file keys / scripts
-const updateNPM = (projectDirectory: string) => {
+const updateNPM = async (projectDirectory: string) => {
     const execOpt = { cwd: projectDirectory };
+
+    spinner.start("Updating npm package file");
 
     execSync(
         'npm set-script prepare "husky install" && npm run prepare',
         execOpt
     );
-    execSync('npm set-script start "ts-node src/index.ts"', execOpt);
-    execSync(
-        'npm pkg set lint-staged.**/*="prettier --write --ignore-unknown"',
-        execOpt
-    );
-    execSync("npm pkg set prettier.tabWidth=4 --json", execOpt);
-    execSync("npm pkg set prettier.endOfLine=lf", execOpt);
-    execSync("npm pkg set prettier.trailingComma=none", execOpt);
-    execSync('npx husky add .husky/pre-commit "npx lint-staged"', execOpt);
+    try {
+        await Promise.all([
+            exec('npm set-script start "ts-node src/index.ts"', execOpt),
+            exec(
+                'npm pkg set lint-staged.**/*="prettier --write --ignore-unknown"',
+                execOpt
+            ),
+            exec("npm pkg set prettier.tabWidth=4 --json", execOpt),
+            exec("npm pkg set prettier.endOfLine=lf", execOpt),
+            exec("npm pkg set prettier.trailingComma=none", execOpt),
+            exec('npx husky add .husky/pre-commit "npx lint-staged"', execOpt)
+        ]);
+
+        spinner.succeed();
+    } catch (e) {
+        spinner.fail();
+    }
 };
 
 // create git related files like gitignore, README
@@ -76,12 +102,12 @@ const addGitFiles = (projectDirectory: string, projectName: string) => {
     writeFileSync(readMePath, `# ${projectName}`);
 };
 
-const mainProc = (projectName: string) => {
+const mainProc = async (projectName: string) => {
     // create dir, git repo, npm proj, install deps, and update package file keys / scripts
     const projectDirectory = createProjectDirectory(projectName);
     execSync("git init && npm init -y", { cwd: projectDirectory });
-    installDeps(projectDirectory);
-    updateNPM(projectDirectory);
+    await installDeps(projectDirectory);
+    await updateNPM(projectDirectory);
 
     // update projectName for further use, if its . get project path basename, otherwise use the given name
     const updatedProjectName =
