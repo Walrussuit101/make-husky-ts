@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 import { program } from "commander";
-import { existsSync, mkdirSync, promises as fs } from "fs";
+import util from "util";
+import { promises as fs } from "fs";
 import path from "path";
-import { execSync, exec } from "child_process";
+import { exec } from "child_process";
 import ora from "ora";
 
 import packageFile from "./package.json";
 
 const spinner = ora();
+const execPromise = util.promisify(exec);
 
 // Create and return the project directory path
 const createProjectDirectory = async (projectName: string): Promise<string> => {
@@ -15,33 +17,29 @@ const createProjectDirectory = async (projectName: string): Promise<string> => {
 
     const projectDirectory = path.join(process.cwd(), projectName);
 
-    return new Promise((resolve, reject) => {
+    // if project won't be in cwd, check it doesn't exist then make it
+    if (projectName !== ".") {
         try {
-            // if project won't be in cwd, check it doesn't exist then make it
-            if (projectName !== ".") {
-                // check that potential directory doesn't exist
-                if (existsSync(projectDirectory)) {
-                    throw new Error(
-                        `Project directory already exists: ${projectDirectory}`
-                    );
-                }
-
-                // create the directory
-                mkdirSync(projectDirectory, { recursive: true });
-            }
-
-            execSync("git init && npm init -y", {
-                cwd: projectDirectory,
-                stdio: "ignore"
-            });
-
-            spinner.succeed();
-            return resolve(projectDirectory);
+            await fs.access(projectDirectory);
         } catch (e) {
-            spinner.fail();
-            return reject(e);
+            // directory doesn't exist, create the directory
+            await fs.mkdir(projectDirectory, { recursive: true });
+            await execPromise("git init && npm init -y", {
+                cwd: projectDirectory
+            });
+            spinner.succeed();
+
+            return projectDirectory;
         }
-    });
+
+        // if we get here that means we access the project directory / it exists
+        spinner.fail();
+        throw new Error(
+            `Project directory already exists: ${projectDirectory}`
+        );
+    }
+
+    return projectDirectory;
 };
 
 // Install dependencies in the project directory
@@ -63,18 +61,13 @@ const installDeps = async (projectDirectory: string): Promise<void> => {
 
     spinner.start("Installing dependencies");
 
-    return new Promise((resolve, reject) => {
-        exec(installCmd, { cwd: projectDirectory }).on("close", (code) => {
-            if (code === 0) {
-                spinner.succeed();
-                resolve();
-                return;
-            }
-
-            spinner.fail();
-            reject();
-        });
-    });
+    try {
+        await execPromise(installCmd, { cwd: projectDirectory });
+        spinner.succeed();
+    } catch (e) {
+        spinner.fail();
+        throw e;
+    }
 };
 
 // set package file keys / scripts
@@ -83,26 +76,32 @@ const updateNPM = async (projectDirectory: string) => {
 
     spinner.start("Updating npm package file");
 
+    // must wait for this command as husky needs to be installed
+    await execPromise(
+        'npm set-script prepare "husky install" && npm run prepare',
+        execOpt
+    );
+
     try {
         await Promise.all([
-            exec(
-                'npm set-script prepare "husky install" && npm run prepare',
-                execOpt
-            ),
-            exec('npm set-script start "ts-node src/index.ts"', execOpt),
-            exec(
+            execPromise('npm set-script start "ts-node src/index.ts"', execOpt),
+            execPromise(
                 'npm pkg set lint-staged.**/*="prettier --write --ignore-unknown"',
                 execOpt
             ),
-            exec("npm pkg set prettier.tabWidth=4 --json", execOpt),
-            exec("npm pkg set prettier.endOfLine=lf", execOpt),
-            exec("npm pkg set prettier.trailingComma=none", execOpt),
-            exec('npx husky add .husky/pre-commit "npx lint-staged"', execOpt)
+            execPromise("npm pkg set prettier.tabWidth=4 --json", execOpt),
+            execPromise("npm pkg set prettier.endOfLine=lf", execOpt),
+            execPromise("npm pkg set prettier.trailingComma=none", execOpt),
+            execPromise(
+                'npx husky add .husky/pre-commit "npx lint-staged"',
+                execOpt
+            )
         ]);
 
         spinner.succeed();
     } catch (e) {
         spinner.fail();
+        throw e;
     }
 };
 
@@ -145,6 +144,7 @@ const addProjectFiles = async (
         spinner.succeed();
     } catch (e) {
         spinner.fail();
+        throw e;
     }
 };
 
@@ -153,6 +153,7 @@ const mainProc = async (projectName: string) => {
     await installDeps(projectDirectory);
     await updateNPM(projectDirectory);
     await addProjectFiles(projectDirectory, projectName);
+    spinner.succeed(`Project created at: ${projectDirectory}`);
 };
 
 // setup commander and accept args
