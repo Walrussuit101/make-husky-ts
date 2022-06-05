@@ -77,26 +77,31 @@ const updateNPM = async (projectDirectory: string) => {
     spinner.start("Updating npm package file");
 
     try {
-        // must wait for this command as husky needs to be installed
         await execPromise(
             'npm set-script prepare "husky install" && npm run prepare',
             execOpt
         );
-
-        await Promise.all([
-            execPromise('npm set-script start "ts-node src/index.ts"', execOpt),
-            execPromise(
+        await execPromise(
+            'npm set-script start "ts-node src/index.ts"',
+            execOpt
+        ),
+            await execPromise(
                 'npm pkg set lint-staged.**/*="prettier --write --ignore-unknown"',
                 execOpt
             ),
-            execPromise("npm pkg set prettier.tabWidth=4 --json", execOpt),
-            execPromise("npm pkg set prettier.endOfLine=lf", execOpt),
-            execPromise("npm pkg set prettier.trailingComma=none", execOpt),
-            execPromise(
+            await execPromise(
+                "npm pkg set prettier.tabWidth='4' --json",
+                execOpt
+            ),
+            await execPromise("npm pkg set prettier.endOfLine='lf'", execOpt),
+            await execPromise(
+                "npm pkg set prettier.trailingComma='none'",
+                execOpt
+            ),
+            await execPromise(
                 'npx husky add .husky/pre-commit "npx lint-staged"',
                 execOpt
-            )
-        ]);
+            );
 
         spinner.succeed();
     } catch (e) {
@@ -105,13 +110,14 @@ const updateNPM = async (projectDirectory: string) => {
     }
 };
 
-// create gitignore, readme, src/index, tsconfig
+// create gitignore, readme, src/index, tsconfig, prettierignore
 const addProjectFiles = async (
     projectDirectory: string,
     projectName: string
 ): Promise<void> => {
     spinner.start("Adding project files");
 
+    const prettierIgnorePath = path.join(projectDirectory, ".prettierignore");
     const gitignorePath = path.join(projectDirectory, ".gitignore");
     const readMePath = path.join(projectDirectory, "README.md");
     const projectSrcDir = path.join(projectDirectory, "src");
@@ -133,6 +139,7 @@ const addProjectFiles = async (
         await fs.mkdir(projectSrcDir);
         await Promise.all([
             fs.writeFile(gitignorePath, "node_modules\npackage-lock.json"),
+            fs.writeFile(prettierIgnorePath, "node_modules\npackage-lock.json"),
             fs.writeFile(readMePath, `# ${projectName}\n`),
             fs.writeFile(tsConfigPath, JSON.stringify(tsConfig, undefined, 2)),
             fs.writeFile(
