@@ -39,6 +39,11 @@ const createProjectDirectory = async (projectName: string): Promise<string> => {
         );
     }
 
+    await execPromise("git init && npm init -y", {
+        cwd: projectDirectory
+    });
+    spinner.succeed();
+
     return projectDirectory;
 };
 
@@ -84,24 +89,18 @@ const updateNPM = async (projectDirectory: string) => {
         await execPromise(
             'npm set-script start "ts-node src/index.ts"',
             execOpt
-        ),
-            await execPromise(
-                'npm pkg set lint-staged.**/*="prettier --write --ignore-unknown"',
-                execOpt
-            ),
-            await execPromise(
-                "npm pkg set prettier.tabWidth='4' --json",
-                execOpt
-            ),
-            await execPromise("npm pkg set prettier.endOfLine='lf'", execOpt),
-            await execPromise(
-                "npm pkg set prettier.trailingComma='none'",
-                execOpt
-            ),
-            await execPromise(
-                'npx husky add .husky/pre-commit "npx lint-staged"',
-                execOpt
-            );
+        );
+        await execPromise(
+            'npm pkg set lint-staged.**/*="prettier --write --ignore-unknown"',
+            execOpt
+        );
+        await execPromise("npm pkg set prettier.tabWidth=4 --json", execOpt);
+        await execPromise("npm pkg set prettier.endOfLine=lf", execOpt);
+        await execPromise("npm pkg set prettier.trailingComma=none", execOpt);
+        await execPromise(
+            'npx husky add .husky/pre-commit "npx lint-staged"',
+            execOpt
+        );
 
         spinner.succeed();
     } catch (e) {
